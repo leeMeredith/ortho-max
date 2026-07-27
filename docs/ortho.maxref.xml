@@ -279,9 +279,17 @@
                 Longest word
             </digest>
             <description>
-                Upper bound on word length. Not a dial: this shapes the output
-                without changing the language. Default 8. Saved with the
-                patcher.
+                Ceiling on word length, not a target — each word's length is
+                drawn randomly below this value, so words vary. Not a dial:
+                this shapes the output without changing the language.
+                <br />
+                The paragraph path (<m>bang</m> and <m>page</m>) draws twice:
+                once for a per-sentence ceiling below this value, then once per
+                word below that. Paragraphs therefore run noticeably shorter
+                than <m>tokens</m> at the same setting. Raise this well above
+                the length you want if paragraphs read as too clipped.
+                <br />
+                Default 8. Saved with the patcher.
             </description>
         </attribute>
 
@@ -290,8 +298,11 @@
                 Longest sentence
             </digest>
             <description>
-                Upper bound on words per sentence. Not a dial. Default 12. Saved
-                with the patcher.
+                Ceiling on words per sentence, drawn randomly below this
+                value rather than fixed at it. As with <m>max_letters</m>, the
+                paragraph path draws twice, so sentences run shorter than this
+                number suggests. Not a dial. Default 12. Saved with the
+                patcher.
             </description>
         </attribute>
 

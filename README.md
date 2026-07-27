@@ -124,6 +124,20 @@ state — and it means a patch reopens speaking whatever it was written in.
 They do not change the language, only how much of it comes out. Kept separate
 in the inspector and the docs for that reason.
 
+**They are ceilings on a random draw, not targets.** Word length varies below
+`@max_letters` rather than sitting at it — that variation is deliberate, since
+prose with uniform word lengths reads as a list.
+
+The paragraph path draws twice: once for a per-sentence ceiling below your
+value, then once per word below that. So `bang` and `page` produce noticeably
+shorter words than `tokens` at the same setting. With `@max_letters 8` a
+paragraph averages two or three letters, which is short enough that seeds start
+to resemble each other.
+
+If paragraphs read as too clipped, raise `@max_letters` well above the length
+you want — 20 or more is reasonable. Or use `tokens N`, which draws once and
+shows a language's character most clearly.
+
 ## Punctuation and message boxes
 
 With the punctuation dials above zero, punctuation is attached to the word it
