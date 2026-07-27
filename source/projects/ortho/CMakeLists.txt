@@ -59,7 +59,6 @@ include_directories(
 # #include; only .c files compile. Add more .c files here as you grow.
 add_library(${PROJECT_NAME} MODULE
     ortho.c
-    simple_math.c
 )
 
 # --- SDK post-target setup: MUST come after add_library ---
