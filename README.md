@@ -4,10 +4,17 @@ A Max/MSP external that generates **invented language** — pseudo-words that
 hold the shape and internal consistency of a language without belonging to any
 existing one.
 
-One `[ortho]` object mints a language substrate once from a seed, then draws
-every word from that same substrate for its lifetime. Same seed, same language,
-every time — in Max, in the JavaScript reference, and in the openFrameworks
-addon. The language is not reimplemented per host; it is shared.
+Every seed names a different language — more than four billion of them. Go
+looking and you will find tongues that are clipped and consonantal, others that
+are long and vowel-heavy, others that sound like they have grammar. Pick the
+one you want.
+
+Determinism is what makes that worth doing. A seed does not merely start a
+language, it *is* the language: the same number gives you the same tongue on
+every machine, in every session, forever. Find one you like and it keeps — in
+your patch, in a collaborator's, in the JavaScript reference, in the
+openFrameworks addon. The language is not reimplemented per host; it is
+shared.
 
     [ortho @seed 12345]
 
@@ -79,6 +86,37 @@ ignored by `tokens`.
 `@preset` sets all seven at tuned proportions. Dials you set by hand are never
 overwritten by it, so order does not matter — `[ortho @preset 0.5 @names 0.9]`
 and `[ortho @names 0.9 @preset 0.5]` are identical.
+
+## Finding a language
+
+`ortho` has no random mode, on purpose: the object's whole contract is that a
+seed always names the same tongue. Randomness belongs outside it, so bring your
+own.
+
+    [random 1000000]
+          |
+    [prepend seed]
+          |
+       [ortho]
+
+Bang it until something sounds right, then read the seed off `[ortho]`'s
+inspector and type it into the object box. From then on that language is
+pinned, saved with the patch, and identical everywhere.
+
+Valid seeds run 0 to 4294967295. `[random 1000000]` explores a sliver of that
+and is still a million languages.
+
+Two different controls, worth not confusing:
+
+- **a new seed** changes the language — different sounds, different word shapes
+- **`section`** keeps the language and changes what it is about — new names,
+  new topics, same tongue
+
+For most patches `section` is the one you reach for while it plays, and the
+seed is what you settle before you start.
+
+Bare `[ortho]` is seed 0. That is a real language like any other, not a null
+state — and it means a patch reopens speaking whatever it was written in.
 
 ## Shaping
 
