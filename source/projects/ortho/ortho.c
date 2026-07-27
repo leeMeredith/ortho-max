@@ -20,13 +20,25 @@
  * If this file ever starts getting smarter than the kernel, that is a bug.
  *
  * OBJECT SURFACE
- *   bang        one paragraph
- *   tokens N    exactly N tokens, punctuation-free (the conformance path)
- *   page N      N paragraphs
- *   section     mint a fresh cast of names/topics/phrases (same language)
+ *   bang         one paragraph
+ *   tokens N     exactly N tokens, punctuation-free (the conformance path)
+ *   page N       N paragraphs
+ *   section      mint a fresh cast of names/topics/phrases (same language)
+ *   cleardials   forget every explicit dial and zero all seven
  *
  *   left outlet   the words, one symbol per atom
  *   right outlet  the matching ORTHO_SRC_* value for each word
+ *
+ * A NOTE ON PUNCTUATION AND MAX
+ *   The readable paths (bang, page) bake punctuation into the token text, so
+ *   a token can arrive as "Lxzxe," — one symbol containing a comma. That is
+ *   correct and matches every other host; the punctuation is part of the
+ *   language. It travels safely through zl, coll, route and anything else
+ *   programmatic. It only misbehaves if a human pastes it into a MESSAGE BOX,
+ *   where Max reads the comma as a message separator. The `tokens` message is
+ *   punctuation-free by contract and is the safe path when that matters.
+ *   We do NOT strip or escape: mangling here would break parity with the JS
+ *   reference and ofxOrtho for no real gain.
  *
  * MEMORY
  *   The kernel never allocates. Neither do we: both buffers are embedded in
@@ -43,6 +55,19 @@
 /* Largest run of tokens one message can emit. Both buffers are this long. */
 #define ORTHOMAX_CAP 1024
 
+/* Indices into the explicit[] mark array — one per dial, same order and same
+ * frozen vocabulary as ortho_dials and ofxOrtho. */
+enum {
+    DIAL_PHRASES = 0,
+    DIAL_FUNCTION_WORDS,
+    DIAL_TOPICS,
+    DIAL_NAMES,
+    DIAL_COMMAS,
+    DIAL_QUOTATION,
+    DIAL_SCARE_QUOTES,
+    DIAL_COUNT
+};
+
 /* ===========================================================================
    THE OBJECT STRUCT
 
@@ -54,15 +79,20 @@
    header guarantees that push rebuilds nothing and consumes no PRNG draws, so
    it cannot perturb conformance.
 
-   It also makes attribute ORDER irrelevant: no matter what sequence Max
-   applies @seed and the dials in, the engine is correct by the time anything
-   is generated.
+   x->explicit_set marks which dials the user set BY HAND. @preset fills only
+   the unmarked ones, so [ortho @preset 0.5 @names 0.9] and
+   [ortho @names 0.9 @preset 0.5] land on identical values. Same design as
+   ofxOrtho, for the same reason: attribute order in an object box is not
+   something a user should have to think about.
    =========================================================================== */
 typedef struct _ortho {
     t_object    ob;              /* MUST BE FIRST */
 
     ortho_t     engine;          /* THE KERNEL, embedded by value */
     ortho_dials dials;           /* Max-facing dial state (see above) */
+
+    char        explicit_set[DIAL_COUNT]; /* 1 = user set this dial by hand */
+    double      preset;          /* @preset — one-knob onramp */
 
     long        seed;            /* @seed — names the language */
     long        max_letters;     /* @max_letters — matches ofxOrtho default 8  */
@@ -80,16 +110,26 @@ static t_class  *ortho_class = NULL;
 static t_symbol *ps_list     = NULL;
 
 /* --- forward declarations ------------------------------------------------ */
-void *orthomax_new    (t_symbol *s, long argc, t_atom *argv);
-void  orthomax_free   (t_ortho *x);
-void  orthomax_assist (t_ortho *x, void *b, long m, long a, char *s);
+void *orthomax_new       (t_symbol *s, long argc, t_atom *argv);
+void  orthomax_free      (t_ortho *x);
+void  orthomax_assist    (t_ortho *x, void *b, long m, long a, char *s);
 
-void  orthomax_bang   (t_ortho *x);
-void  orthomax_tokens (t_ortho *x, t_symbol *s, long argc, t_atom *argv);
-void  orthomax_page   (t_ortho *x, t_symbol *s, long argc, t_atom *argv);
-void  orthomax_section(t_ortho *x);
+void  orthomax_bang      (t_ortho *x);
+void  orthomax_tokens    (t_ortho *x, t_symbol *s, long argc, t_atom *argv);
+void  orthomax_page      (t_ortho *x, t_symbol *s, long argc, t_atom *argv);
+void  orthomax_section   (t_ortho *x);
+void  orthomax_cleardials(t_ortho *x);
 
-t_max_err orthomax_seed_set(t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_seed_set  (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_preset_set(t_ortho *x, void *attr, long argc, t_atom *argv);
+
+t_max_err orthomax_phrases_set       (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_function_words_set(t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_topics_set        (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_names_set         (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_commas_set        (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_quotation_set     (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_scare_quotes_set  (t_ortho *x, void *attr, long argc, t_atom *argv);
 
 /* ===========================================================================
    EXT_MAIN
@@ -107,16 +147,15 @@ void ext_main(void *r)
                   0L,
                   A_GIMME, 0);
 
-    class_addmethod(c, (method)orthomax_bang,    "bang",    A_NOTHING, 0);
-    class_addmethod(c, (method)orthomax_tokens,  "tokens",  A_GIMME,   0);
-    class_addmethod(c, (method)orthomax_page,    "page",    A_GIMME,   0);
-    class_addmethod(c, (method)orthomax_section, "section", A_NOTHING, 0);
-    class_addmethod(c, (method)orthomax_assist,  "assist",  A_CANT,    0);
+    class_addmethod(c, (method)orthomax_bang,       "bang",       A_NOTHING, 0);
+    class_addmethod(c, (method)orthomax_tokens,     "tokens",     A_GIMME,   0);
+    class_addmethod(c, (method)orthomax_page,       "page",       A_GIMME,   0);
+    class_addmethod(c, (method)orthomax_section,    "section",    A_NOTHING, 0);
+    class_addmethod(c, (method)orthomax_cleardials, "cleardials", A_NOTHING, 0);
+    class_addmethod(c, (method)orthomax_assist,     "assist",     A_CANT,    0);
 
     /* --- @seed: names the language ---------------------------------------
-     * Custom setter, because changing the seed must RE-MINT the substrate.
-     * Everything else can be written straight into the struct; this one has
-     * to run code. */
+     * Custom setter, because changing the seed must RE-MINT the substrate. */
     CLASS_ATTR_LONG        (c, "seed", 0, t_ortho, seed);
     CLASS_ATTR_LABEL       (c, "seed", 0, "Seed (names the language)");
     CLASS_ATTR_ACCESSORS   (c, "seed", NULL, orthomax_seed_set);
@@ -124,54 +163,64 @@ void ext_main(void *r)
 
     /* --- the seven dials -------------------------------------------------
      * Frozen vocabulary, shared verbatim with the JS reference and ofxOrtho.
-     * Each is a double in [0,1] defaulting to 0. FILTER_CLIP enforces the
-     * range at the Max boundary; ortho_set_dials() clamps again inside the
-     * kernel, so a bad value can never reach the language. */
+     * Each is a double in [0,1] defaulting to 0.
+     *
+     * Every dial has a custom setter so it can mark itself explicit. Clamping
+     * happens in that setter as plain C — a custom setter may or may not still
+     * run a CLASS_ATTR_FILTER_CLIP filter, and rather than depend on macro
+     * behavior I have not verified, the clamp lives in code we can read.
+     * ortho_set_dials() clamps again inside the kernel regardless. */
     CLASS_ATTR_DOUBLE      (c, "phrases", 0, t_ortho, dials.phrases);
     CLASS_ATTR_LABEL       (c, "phrases", 0, "Phrase recurrence");
-    CLASS_ATTR_FILTER_CLIP (c, "phrases", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "phrases", NULL, orthomax_phrases_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "phrases", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "function_words", 0, t_ortho, dials.function_words);
     CLASS_ATTR_LABEL       (c, "function_words", 0, "Function-word recurrence");
-    CLASS_ATTR_FILTER_CLIP (c, "function_words", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "function_words", NULL, orthomax_function_words_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "function_words", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "topics", 0, t_ortho, dials.topics);
     CLASS_ATTR_LABEL       (c, "topics", 0, "Topic recurrence (the phony what)");
-    CLASS_ATTR_FILTER_CLIP (c, "topics", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "topics", NULL, orthomax_topics_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "topics", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "names", 0, t_ortho, dials.names);
     CLASS_ATTR_LABEL       (c, "names", 0, "Name recurrence (the phony who)");
-    CLASS_ATTR_FILTER_CLIP (c, "names", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "names", NULL, orthomax_names_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "names", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "commas", 0, t_ortho, dials.commas);
     CLASS_ATTR_LABEL       (c, "commas", 0, "Comma pacing");
-    CLASS_ATTR_FILTER_CLIP (c, "commas", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "commas", NULL, orthomax_commas_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "commas", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "quotation", 0, t_ortho, dials.quotation);
     CLASS_ATTR_LABEL       (c, "quotation", 0, "Direct speech");
-    CLASS_ATTR_FILTER_CLIP (c, "quotation", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "quotation", NULL, orthomax_quotation_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "quotation", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "scare_quotes", 0, t_ortho, dials.scare_quotes);
     CLASS_ATTR_LABEL       (c, "scare_quotes", 0, "Scare quotes");
-    CLASS_ATTR_FILTER_CLIP (c, "scare_quotes", 0., 1.);
+    CLASS_ATTR_ACCESSORS   (c, "scare_quotes", NULL, orthomax_scare_quotes_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "scare_quotes", 0, "0.");
 
+    /* --- @preset: one-knob onramp ----------------------------------------
+     * Fills only the dials NOT set by hand, using the tuned proportions in
+     * ortho_dials_preset(). Glue-level convenience, NOT part of the language
+     * definition — it consumes no PRNG draws. */
+    CLASS_ATTR_DOUBLE      (c, "preset", 0, t_ortho, preset);
+    CLASS_ATTR_LABEL       (c, "preset", 0, "Preset (fills unset dials)");
+    CLASS_ATTR_ACCESSORS   (c, "preset", NULL, orthomax_preset_set);
+    CLASS_ATTR_DEFAULT_SAVE(c, "preset", 0, "0.");
+
     /* --- shaping ---------------------------------------------------------
-     * NOT dials. These are not part of the language definition and are not in
-     * the frozen vocabulary — they only shape how much comes out. Kept in
-     * their own group here and in the docs so the distinction stays visible.
-     * Defaults for the first two match ofxOrtho's; @sentences has no ofxOrtho
-     * counterpart (there numSentences is a required argument), so 4 is a Max
-     * choice that belongs in HOSTS.md.
-     *
-     * These clamp in C at the call site rather than with a class filter — the
-     * clamp then lives in ordinary code we can read, not in macro behavior. */
+     * NOT dials. Not part of the language definition, not in the frozen
+     * vocabulary — they only shape how much comes out. Kept in their own group
+     * here and in the docs so the distinction stays visible. Defaults for the
+     * first two match ofxOrtho's; @sentences has no ofxOrtho counterpart
+     * (there numSentences is a required argument), so 4 is a Max choice that
+     * belongs in HOSTS.md. These clamp in C at the call site. */
     CLASS_ATTR_LONG        (c, "max_letters", 0, t_ortho, max_letters);
     CLASS_ATTR_LABEL       (c, "max_letters", 0, "Longest word");
     CLASS_ATTR_DEFAULT_SAVE(c, "max_letters", 0, "8");
@@ -197,6 +246,33 @@ static long orthomax_clamp(long v, long lo, long hi)
     if (v < lo) return lo;
     if (v > hi) return hi;
     return v;
+}
+
+static double orthomax_clamp01(double v)
+{
+    if (v < 0.0) return 0.0;
+    if (v > 1.0) return 1.0;
+    return v;
+}
+
+/* Recompute the dials from @preset, leaving hand-set dials alone.
+ *
+ * Explicit dials already hold the user's value in x->dials, so we only need to
+ * overwrite the unmarked ones. That is what makes attribute order irrelevant:
+ * preset-then-dial ends up in the same place as dial-then-preset. */
+static void orthomax_recompute(t_ortho *x)
+{
+    ortho_dials p;
+
+    ortho_dials_preset(&p, x->preset);
+
+    if (!x->explicit_set[DIAL_PHRASES])        x->dials.phrases        = p.phrases;
+    if (!x->explicit_set[DIAL_FUNCTION_WORDS]) x->dials.function_words = p.function_words;
+    if (!x->explicit_set[DIAL_TOPICS])         x->dials.topics         = p.topics;
+    if (!x->explicit_set[DIAL_NAMES])          x->dials.names          = p.names;
+    if (!x->explicit_set[DIAL_COMMAS])         x->dials.commas         = p.commas;
+    if (!x->explicit_set[DIAL_QUOTATION])      x->dials.quotation      = p.quotation;
+    if (!x->explicit_set[DIAL_SCARE_QUOTES])   x->dials.scare_quotes   = p.scare_quotes;
 }
 
 /* Push the Max-side dials into the engine. Free per ortho.h: no substrate
@@ -235,10 +311,15 @@ static void orthomax_emit(t_ortho *x, int n)
 void *orthomax_new(t_symbol *s, long argc, t_atom *argv)
 {
     t_ortho *x = (t_ortho *)object_alloc(ortho_class);
+    int i;
+
     if (!x) return NULL;
 
     /* Engine state first, before anything can change it. */
     ortho_dials_clear(&x->dials);
+    for (i = 0; i < DIAL_COUNT; i++) x->explicit_set[i] = 0;
+
+    x->preset      = 0.0;
     x->seed        = 0;
     x->max_letters = 8;
     x->max_words   = 12;
@@ -250,9 +331,9 @@ void *orthomax_new(t_symbol *s, long argc, t_atom *argv)
     x->outlet_source = outlet_new((t_object *)x, NULL);
     x->outlet_words  = outlet_new((t_object *)x, NULL);
 
-    /* Applies typed-in @attributes AND saved ones on patch load. If @seed is
-     * among them the setter re-mints; if dials are among them the next
-     * generation call syncs them. Either order lands correct. */
+    /* Applies typed-in @attributes AND saved ones on patch load. Any order
+     * lands correct: @seed re-mints on arrival, dials mark themselves and
+     * recompute, and the next generation call syncs whatever resulted. */
     attr_args_process(x, argc, argv);
 
     return x;
@@ -351,18 +432,28 @@ void orthomax_section(t_ortho *x)
     ortho_new_section(&x->engine);
 }
 
-/* ===========================================================================
-   ATTRIBUTE SETTER for @seed
+/* Forget every explicit mark and zero all seven dials — the ofxOrtho
+ * clearDials() equivalent. @preset is left where it is; the next change to it
+ * will now fill all seven, since nothing is marked any more. */
+void orthomax_cleardials(t_ortho *x)
+{
+    int i;
+    ortho_dials_clear(&x->dials);
+    for (i = 0; i < DIAL_COUNT; i++) x->explicit_set[i] = 0;
+}
 
-   The seed IS the language, so setting it re-mints the substrate. Dials are
-   passed from our own copy, which lives outside ortho_t — so nothing is being
-   read out of the struct while it is overwritten.
+/* ===========================================================================
+   ATTRIBUTE SETTERS
    =========================================================================== */
+
+/* The seed IS the language, so setting it re-mints the substrate. Dials are
+ * passed from our own copy, which lives outside ortho_t — so nothing is being
+ * read out of the struct while it is overwritten. */
 t_max_err orthomax_seed_set(t_ortho *x, void *attr, long argc, t_atom *argv)
 {
     if (argc && argv) {
         long v = atom_getlong(argv);
-        if (v < 0)          v = 0;
+        if (v < 0)           v = 0;
         if (v > 4294967295L) v = 4294967295L;
         x->seed = v;
         ortho_init(&x->engine, (uint32_t)x->seed, &x->dials);
@@ -370,16 +461,59 @@ t_max_err orthomax_seed_set(t_ortho *x, void *attr, long argc, t_atom *argv)
     return MAX_ERR_NONE;
 }
 
+t_max_err orthomax_preset_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{
+    if (argc && argv) {
+        x->preset = orthomax_clamp01(atom_getfloat(argv));
+        orthomax_recompute(x);
+    }
+    return MAX_ERR_NONE;
+}
+
+/* Shared body for the seven dial setters: clamp, store, mark explicit, then
+ * recompute so any unmarked dials still track @preset. */
+static t_max_err orthomax_dial_set(t_ortho *x, int which, double *field,
+                                   long argc, t_atom *argv)
+{
+    if (argc && argv) {
+        *field = orthomax_clamp01(atom_getfloat(argv));
+        x->explicit_set[which] = 1;
+        orthomax_recompute(x);
+    }
+    return MAX_ERR_NONE;
+}
+
+t_max_err orthomax_phrases_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_PHRASES, &x->dials.phrases, argc, argv); }
+
+t_max_err orthomax_function_words_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_FUNCTION_WORDS, &x->dials.function_words, argc, argv); }
+
+t_max_err orthomax_topics_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_TOPICS, &x->dials.topics, argc, argv); }
+
+t_max_err orthomax_names_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_NAMES, &x->dials.names, argc, argv); }
+
+t_max_err orthomax_commas_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_COMMAS, &x->dials.commas, argc, argv); }
+
+t_max_err orthomax_quotation_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_QUOTATION, &x->dials.quotation, argc, argv); }
+
+t_max_err orthomax_scare_quotes_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{ return orthomax_dial_set(x, DIAL_SCARE_QUOTES, &x->dials.scare_quotes, argc, argv); }
+
 /* ===========================================================================
    ASSIST
    =========================================================================== */
 void orthomax_assist(t_ortho *x, void *b, long m, long a, char *s)
 {
     if (m == ASSIST_INLET) {
-        strncpy_zero(s, "bang, tokens N, page N, section, attributes", 512);
+        strncpy_zero(s, "bang, tokens N, page N, section, cleardials, attributes", 512);
     } else {
         switch (a) {
-            case 0: strncpy_zero(s, "words (list of symbols)",        512); break;
+            case 0: strncpy_zero(s, "words (list of symbols)", 512); break;
             case 1: strncpy_zero(s, "sources (0 fresh 1 function 2 topic 3 name 4 phrase)", 512); break;
         }
     }
