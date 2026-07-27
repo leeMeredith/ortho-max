@@ -432,12 +432,16 @@ void orthomax_section(t_ortho *x)
     ortho_new_section(&x->engine);
 }
 
-/* Forget every explicit mark and zero all seven dials — the ofxOrtho
- * clearDials() equivalent. @preset is left where it is; the next change to it
- * will now fill all seven, since nothing is marked any more. */
+/* Forget every explicit mark, zero all seven dials, AND zero @preset — the
+ * ofxOrtho clearDials() equivalent, which does the same three things.
+ *
+ * Clearing the preset is not optional. If it stayed live, the very next dial
+ * change would call recompute and every unmarked dial would refill from it,
+ * silently undoing the clear. */
 void orthomax_cleardials(t_ortho *x)
 {
     int i;
+    x->preset = 0.0;
     ortho_dials_clear(&x->dials);
     for (i = 0; i < DIAL_COUNT; i++) x->explicit_set[i] = 0;
 }
