@@ -94,6 +94,21 @@ typedef struct _ortho {
     char        explicit_set[DIAL_COUNT]; /* 1 = user set this dial by hand */
     double      preset;          /* @preset — one-knob onramp */
 
+    /* @dialmarks — the explicit_set array as a bitfield, saved with the
+     * patcher and invisible in the inspector.
+     *
+     * Without this, reopening a saved patch fires every dial's setter, every
+     * dial marks itself explicit, and @preset goes inert until cleardials.
+     * A user reported exactly that.
+     *
+     * marks_pending defers application: the setter only records that saved
+     * marks arrived, and new() applies them AFTER attr_args_process finishes.
+     * That makes the fix independent of the order Max applies attributes in —
+     * on a fresh object there are no saved marks and the dial setters decide,
+     * on a reload the saved marks win no matter when they land. */
+    long        dialmarks;
+    char        marks_pending;
+
     long        seed;            /* @seed — names the language */
     long        max_letters;     /* @max_letters — matches ofxOrtho default 8  */
     long        max_words;       /* @max_words   — matches ofxOrtho default 12 */
@@ -120,8 +135,9 @@ void  orthomax_page      (t_ortho *x, t_symbol *s, long argc, t_atom *argv);
 void  orthomax_section   (t_ortho *x);
 void  orthomax_cleardials(t_ortho *x);
 
-t_max_err orthomax_seed_set  (t_ortho *x, void *attr, long argc, t_atom *argv);
-t_max_err orthomax_preset_set(t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_seed_set     (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_preset_set   (t_ortho *x, void *attr, long argc, t_atom *argv);
+t_max_err orthomax_dialmarks_set(t_ortho *x, void *attr, long argc, t_atom *argv);
 
 t_max_err orthomax_phrases_set       (t_ortho *x, void *attr, long argc, t_atom *argv);
 t_max_err orthomax_function_words_set(t_ortho *x, void *attr, long argc, t_atom *argv);
@@ -214,6 +230,15 @@ void ext_main(void *r)
     CLASS_ATTR_ACCESSORS   (c, "preset", NULL, orthomax_preset_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "preset", 0, "0.");
 
+    /* --- @dialmarks: which dials the user set by hand --------------------
+     * Invisible and saved. Not part of the object's documented surface; it
+     * exists so the explicit marks survive a save/reload alongside the values
+     * they belong to. */
+    CLASS_ATTR_LONG        (c, "dialmarks", 0, t_ortho, dialmarks);
+    CLASS_ATTR_ACCESSORS   (c, "dialmarks", NULL, orthomax_dialmarks_set);
+    CLASS_ATTR_INVISIBLE   (c, "dialmarks", 0);
+    CLASS_ATTR_SAVE        (c, "dialmarks", 0);
+
     /* --- shaping ---------------------------------------------------------
      * NOT dials. Not part of the language definition, not in the frozen
      * vocabulary — they only shape how much comes out. Kept in their own group
@@ -253,6 +278,17 @@ static double orthomax_clamp01(double v)
     if (v < 0.0) return 0.0;
     if (v > 1.0) return 1.0;
     return v;
+}
+
+/* Mirror explicit_set[] into the saved bitfield. Called after every change to
+ * the marks so @dialmarks is always current when Max asks for it at save time. */
+static void orthomax_pack_marks(t_ortho *x)
+{
+    int i;
+    long bits = 0;
+    for (i = 0; i < DIAL_COUNT; i++)
+        if (x->explicit_set[i]) bits |= (1L << i);
+    x->dialmarks = bits;
 }
 
 /* Recompute the dials from @preset, leaving hand-set dials alone.
@@ -319,8 +355,10 @@ void *orthomax_new(t_symbol *s, long argc, t_atom *argv)
     ortho_dials_clear(&x->dials);
     for (i = 0; i < DIAL_COUNT; i++) x->explicit_set[i] = 0;
 
-    x->preset      = 0.0;
-    x->seed        = 0;
+    x->preset        = 0.0;
+    x->dialmarks     = 0;
+    x->marks_pending = 0;
+    x->seed          = 0;
     x->max_letters = 8;
     x->max_words   = 12;
     x->sentences   = 4;
@@ -335,6 +373,15 @@ void *orthomax_new(t_symbol *s, long argc, t_atom *argv)
      * lands correct: @seed re-mints on arrival, dials mark themselves and
      * recompute, and the next generation call syncs whatever resulted. */
     attr_args_process(x, argc, argv);
+
+    /* Saved marks, if any, overwrite whatever the dial setters just decided.
+     * Runs after processing, so attribute order cannot affect the result. */
+    if (x->marks_pending) {
+        for (i = 0; i < DIAL_COUNT; i++)
+            x->explicit_set[i] = (x->dialmarks & (1L << i)) ? 1 : 0;
+        x->marks_pending = 0;
+        orthomax_recompute(x);
+    }
 
     return x;
 }
@@ -444,6 +491,7 @@ void orthomax_cleardials(t_ortho *x)
     x->preset = 0.0;
     ortho_dials_clear(&x->dials);
     for (i = 0; i < DIAL_COUNT; i++) x->explicit_set[i] = 0;
+    orthomax_pack_marks(x);
 }
 
 /* ===========================================================================
@@ -482,7 +530,19 @@ static t_max_err orthomax_dial_set(t_ortho *x, int which, double *field,
     if (argc && argv) {
         *field = orthomax_clamp01(atom_getfloat(argv));
         x->explicit_set[which] = 1;
+        orthomax_pack_marks(x);
         orthomax_recompute(x);
+    }
+    return MAX_ERR_NONE;
+}
+
+/* Records saved marks without applying them — new() does that once
+ * attr_args_process has finished. See the note on t_ortho.dialmarks. */
+t_max_err orthomax_dialmarks_set(t_ortho *x, void *attr, long argc, t_atom *argv)
+{
+    if (argc && argv) {
+        x->dialmarks     = atom_getlong(argv);
+        x->marks_pending = 1;
     }
     return MAX_ERR_NONE;
 }
