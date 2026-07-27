@@ -181,12 +181,12 @@ void ext_main(void *r)
     CLASS_ATTR_DEFAULT_SAVE(c, "function_words", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "topics", 0, t_ortho, dials.topics);
-    CLASS_ATTR_LABEL       (c, "topics", 0, "Topic recurrence (the phony what)");
+    CLASS_ATTR_LABEL       (c, "topics", 0, "Topic recurrence (the section's subject)");
     CLASS_ATTR_ACCESSORS   (c, "topics", NULL, orthomax_topics_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "topics", 0, "0.");
 
     CLASS_ATTR_DOUBLE      (c, "names", 0, t_ortho, dials.names);
-    CLASS_ATTR_LABEL       (c, "names", 0, "Name recurrence (the phony who)");
+    CLASS_ATTR_LABEL       (c, "names", 0, "Name recurrence (the section's identities)");
     CLASS_ATTR_ACCESSORS   (c, "names", NULL, orthomax_names_set);
     CLASS_ATTR_DEFAULT_SAVE(c, "names", 0, "0.");
 

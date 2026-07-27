@@ -2,84 +2,76 @@
 <?xml-stylesheet href="./_c74_ref.xsl" type="text/xsl"?>
 
 <!--
-    template.maxref.xml — the reference page for [template]
+    ortho.maxref.xml — the reference page for [ortho]
 
-    WHERE THIS GOES: the package's docs/ folder, named <objectname>.maxref.xml.
-    Max finds it automatically; there is nothing to register. Right-click the
-    object in a patcher and choose "Open <objectname> Reference" to see it.
-
-    THE TWO LINES ABOVE are boilerplate on every refpage. The stylesheet is only
-    used when you open the file directly in a browser — Max renders the page
-    with its own styling, so the exact filename there is cosmetic.
-
-    RENAMING: change the file name and the name="" attribute below. They must
-    match the string in class_new().
+    Every digest below is the attribute's CLASS_ATTR_LABEL string, verbatim
+    from ortho.c. Keep them in sync: if a label changes in source, change it
+    here in the same commit.
 -->
 
-<c74object name="template">
+<c74object name="ortho">
 
     <digest>
-        Two-number calculator — a documented starting point for Max SDK development
+        Invented-language generator — pseudo-words from a seeded language substrate
     </digest>
 
     <description>
-        <o>template</o> combines two numbers using the operation set by the
-        <m>op</m> attribute. It exists to be taken apart: it is the smallest
-        complete Max external that still demonstrates inlets, outlets, methods,
-        a saved attribute, and a clean split between Max-facing glue code and a
-        portable engine that knows nothing about Max.
+        <o>ortho</o> mints a language once from a seed and then draws every word
+        from that same invented tongue, so output reads as internally consistent
+        rather than as noise. The same seed always names the same language, on
+        every host and every machine.
+        <br />
+        Seven dials control how much the language repeats itself and how it is
+        punctuated. Each token comes out with a classification saying why it
+        appeared, so a patch can treat a recurring name differently from a
+        freshly minted word.
     </description>
 
     <!--METADATA-->
     <metadatalist>
         <metadata name="author">JD Clemon Lee Meredith</metadata>
-        <metadata name="tag">template</metadata>
-        <metadata name="tag">math</metadata>
-        <metadata name="tag">sdk</metadata>
+        <metadata name="tag">text</metadata>
+        <metadata name="tag">generative</metadata>
+        <metadata name="tag">language</metadata>
     </metadatalist>
 
     <!--INLETS-->
     <inletlist>
         <inlet id="0" type="INLET_TYPE">
             <digest>
-                a (hot) — number, bang, or list "a b"
+                bang, tokens N, page N, section, cleardials, attributes
             </digest>
             <description>
-                Sets the first operand and immediately computes and outputs.
-                A <m>bang</m> recomputes with the current values. A two-element
-                list sets both operands at once, then outputs.
-            </description>
-        </inlet>
-        <inlet id="1" type="INLET_TYPE">
-            <digest>
-                b (cold) — second number, stored only
-            </digest>
-            <description>
-                Sets the second operand without producing output. This is the
-                standard Max hot/cold convention: the left inlet triggers, the
-                right inlet only stores.
+                All input arrives here. Generation messages produce text on both
+                outlets; attribute messages change settings without producing
+                output.
             </description>
         </inlet>
     </inletlist>
 
     <!--OUTLETS-->
     <outletlist>
-        <outlet id="0" type="float">
+        <outlet id="0" type="list">
             <digest>
-                result
+                words (list of symbols)
             </digest>
             <description>
-                The computed value, as a float.
+                One symbol per word. Walk it with <o>zl</o> or store it with
+                <o>coll</o>.
             </description>
         </outlet>
         <outlet id="1" type="list">
             <digest>
-                a b result
+                sources (0 fresh 1 function 2 topic 3 name 4 phrase)
             </digest>
             <description>
-                All three values as a list, for unpacking downstream with
-                <o>unpack</o>. Fired before the left outlet, so anything reacting
-                to the result already has the matching operands available.
+                One integer per word, aligned position for position with the
+                left outlet. 0 is a freshly generated word; 1 a document-scope
+                function word; 2 a section-scope topic; 3 a section-scope name;
+                4 a member of a recurring phrase.
+                <br />
+                Fired before the left outlet, so anything reacting to the words
+                already has the matching classifications available.
             </description>
         </outlet>
     </outletlist>
@@ -90,94 +82,270 @@
 
     <!--MESSAGES-->
     <methodlist>
-        <method name="int">
-            <arglist>
-                <arg name="value" optional="0" type="int" />
-            </arglist>
-            <digest>
-                Set an operand
-            </digest>
-            <description>
-                In the left inlet, sets a and outputs. In the right inlet, stores
-                b without output.
-            </description>
-        </method>
-        <method name="float">
-            <arglist>
-                <arg name="value" optional="0" type="float" />
-            </arglist>
-            <digest>
-                Set an operand
-            </digest>
-            <description>
-                Same as <m>int</m>, with a decimal value. All arithmetic is done
-                in double precision internally.
-            </description>
-        </method>
         <method name="bang">
             <arglist />
             <digest>
-                Recompute and output
+                Generate one paragraph
             </digest>
             <description>
-                Recomputes using the current operands and operation, and fires
-                both outlets. Useful for re-triggering after changing <m>op</m>.
+                Produces one paragraph of <m>sentences</m> sentences, each up to
+                <m>max_words</m> words long. Capitalisation, terminal marks, and
+                any punctuation the dials call for are included.
             </description>
         </method>
-        <method name="list">
+        <method name="tokens">
             <arglist>
-                <arg name="a" optional="0" type="float" />
-                <arg name="b" optional="1" type="float" />
+                <arg name="count" optional="0" type="int" />
             </arglist>
             <digest>
-                Set both operands at once
+                Generate exactly N tokens, punctuation-free
             </digest>
             <description>
-                Sets a from the first element and b from the second. Sent to the
-                left inlet, it also computes and outputs.
+                Produces exactly the requested number of words, with no
+                capitalisation, no terminal marks, and no punctuation of any
+                kind. Recurrence still applies.
+                <br />
+                This is the conformance path — the one that diffs against the
+                published golden vectors — and the safe path when the words are
+                headed somewhere that treats punctuation specially.
+            </description>
+        </method>
+        <method name="page">
+            <arglist>
+                <arg name="count" optional="0" type="int" />
+            </arglist>
+            <digest>
+                Generate N paragraphs
+            </digest>
+            <description>
+                Produces the requested number of paragraphs as one continuous
+                token run. The cast of names and topics persists across all of
+                them; only <m>section</m> changes subjects.
+                <br />
+                Output is capped at 1024 tokens. If a request would exceed that,
+                the object emits what fits and posts a warning saying how many
+                paragraphs it managed.
+            </description>
+        </method>
+        <method name="section">
+            <arglist />
+            <digest>
+                Mint a fresh cast of names, topics, and phrases
+            </digest>
+            <description>
+                Starts a new section: new names, new topics, new recurring
+                phrases, and any half-delivered phrase is dropped. The language
+                itself does not change — same substrate, new subjects. Produces
+                no output on its own.
+            </description>
+        </method>
+        <method name="cleardials">
+            <arglist />
+            <digest>
+                Zero all seven dials and the preset
+            </digest>
+            <description>
+                Sets every dial to 0, clears <m>preset</m> to 0, and forgets
+                which dials were set by hand. After this the object is back to
+                its bare default, where every token is freshly generated.
             </description>
         </method>
     </methodlist>
 
     <!--ATTRIBUTES-->
     <attributelist>
-        <attribute name="op" get="1" set="1" type="int" size="1">
+
+        <attribute name="seed" get="1" set="1" type="int" size="1">
             <digest>
-                Operation
+                Seed (names the language)
             </digest>
             <description>
-                Which operation to perform: 0 = Add, 1 = Subtract,
-                2 = Multiply, 3 = Divide. Settable as a typed-in argument
-                (<b>[template @op 2]</b>), from the Inspector, or at
-                runtime with an <b>op $1</b> message.
+                The seed IS the language. Setting it immediately mints a new
+                substrate, so every word afterwards is drawn from a different
+                invented tongue. The same seed always produces the same
+                language, in this object, in the JavaScript reference, and in
+                the openFrameworks addon.
                 <br />
-                Division by zero is refused rather than producing infinity: the
-                object posts a warning and outputs 0.
-                <br />
-                This attribute is saved with the patcher, so the chosen operation
-                is restored when the patch reopens.
+                Range 0 to 4294967295. Saved with the patcher.
             </description>
         </attribute>
+
+        <attribute name="phrases" get="1" set="1" type="float" size="1">
+            <digest>
+                Phrase recurrence
+            </digest>
+            <description>
+                How often a multi-word phrase recurs. Phrases arrive whole and
+                in order rather than word by word. Tokens drawn from a phrase
+                report source 4. Range 0 to 1, default 0. Saved with the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="function_words" get="1" set="1" type="float" size="1">
+            <digest>
+                Function-word recurrence
+            </digest>
+            <description>
+                How often the small grammatical glue words recur. These are
+                document-scope: they persist across sections, the way "the" and
+                "of" persist across chapters. Source 1. Range 0 to 1, default 0.
+                Saved with the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="topics" get="1" set="1" type="float" size="1">
+            <digest>
+                Topic recurrence (the section's subject)
+            </digest>
+            <description>
+                How often the section's subject matter recurs — the words the
+                passage appears to be about. Section-scope: <m>section</m> mints
+                a new set. Source 2. Range 0 to 1, default 0. Saved with the
+                patcher.
+            </description>
+        </attribute>
+
+        <attribute name="names" get="1" set="1" type="float" size="1">
+            <digest>
+                Name recurrence (the section's identities)
+            </digest>
+            <description>
+                How often the section's cast of names recurs — the people the
+                passage appears to be about. Section-scope: <m>section</m> mints
+                a new cast. Source 3. Range 0 to 1, default 0. Saved with the
+                patcher.
+            </description>
+        </attribute>
+
+        <attribute name="commas" get="1" set="1" type="float" size="1">
+            <digest>
+                Comma pacing
+            </digest>
+            <description>
+                How often commas appear, anchored to function words so the
+                pacing falls where a reader expects it. Affects the readable
+                paths only; <m>tokens</m> is never punctuated. Range 0 to 1,
+                default 0. Saved with the patcher.
+                <br />
+                A comma is attached to its word, so a token can arrive as one
+                symbol containing a comma. See the discussion below.
+            </description>
+        </attribute>
+
+        <attribute name="quotation" get="1" set="1" type="float" size="1">
+            <digest>
+                Direct speech
+            </digest>
+            <description>
+                How often a span of direct speech appears, anchored to a name
+                from the current cast so someone in the passage appears to be
+                speaking. Readable paths only. Range 0 to 1, default 0. Saved
+                with the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="scare_quotes" get="1" set="1" type="float" size="1">
+            <digest>
+                Scare quotes
+            </digest>
+            <description>
+                How often a single term is held at arm's length in quotation
+                marks. Readable paths only. Range 0 to 1, default 0. Saved with
+                the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="preset" get="1" set="1" type="float" size="1">
+            <digest>
+                Preset (fills unset dials)
+            </digest>
+            <description>
+                A single knob that fills all seven dials at tuned proportions —
+                a starting point when you do not want to set seven values by
+                hand.
+                <br />
+                Dials you set yourself are never overwritten by the preset, so
+                order does not matter: <b>[ortho @preset 0.5 @names 0.9]</b> and
+                <b>[ortho @names 0.9 @preset 0.5]</b> produce identical
+                settings. Send <m>cleardials</m> to release every hand-set dial
+                back to the preset's control.
+                <br />
+                Range 0 to 1, default 0. Saved with the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="max_letters" get="1" set="1" type="int" size="1">
+            <digest>
+                Longest word
+            </digest>
+            <description>
+                Upper bound on word length. Not a dial: this shapes the output
+                without changing the language. Default 8. Saved with the
+                patcher.
+            </description>
+        </attribute>
+
+        <attribute name="max_words" get="1" set="1" type="int" size="1">
+            <digest>
+                Longest sentence
+            </digest>
+            <description>
+                Upper bound on words per sentence. Not a dial. Default 12. Saved
+                with the patcher.
+            </description>
+        </attribute>
+
+        <attribute name="sentences" get="1" set="1" type="int" size="1">
+            <digest>
+                Sentences per paragraph
+            </digest>
+            <description>
+                How many sentences a <m>bang</m> produces, and how many go into
+                each paragraph of a <m>page</m>. Not a dial. Default 4. Saved
+                with the patcher.
+            </description>
+        </attribute>
+
     </attributelist>
 
     <!--SEEALSO-->
     <seealsolist>
-        <seealso name="+" />
-        <seealso name="expr" />
-        <seealso name="unpack" />
+        <seealso name="zl" />
+        <seealso name="coll" />
+        <seealso name="prepend" />
+        <seealso name="text" />
     </seealsolist>
 
     <!--DISCUSSION-->
     <discussion>
-        The arithmetic lives in <b>simple_math.c</b>, a plain C file containing
-        no Max code at all — no <b>ext.h</b>, no atoms, no outlets. The Max
-        object owns an engine struct and calls into it; the engine never reaches
-        back out. That split is the main thing this object exists to demonstrate,
-        because it lets you test the engine without launching Max and reuse it in
-        another object or another program entirely.
+        DIALS VERSUS SHAPING. The seven dials are the language: they control
+        recurrence and punctuation, and their names are fixed across every
+        program that speaks ortho. The three shaping attributes
+        (<m>max_letters</m>, <m>max_words</m>, <m>sentences</m>) only control
+        how much text comes out. Changing a dial changes the character of the
+        writing; changing a shaping value changes its size.
         <br />
-        When a result is wrong you look in the engine; when an inlet misbehaves
-        you look in the glue. The bug tells you which file it is in.
+        PUNCTUATION AND MESSAGE BOXES. With the punctuation dials above zero, a
+        token can arrive as one symbol carrying a comma or quotation marks, such
+        as a word followed by a comma. That symbol travels safely through
+        <o>zl</o>, <o>coll</o>, <o>route</o>, and anything else programmatic. It
+        is only re-read if it is pasted into a message box, because Max treats a
+        comma as a message separator there. Punctuation is deliberately left
+        intact rather than stripped, because it is part of the language and
+        every other ortho host keeps it. Use <m>tokens</m> when you need output
+        guaranteed free of it.
+        <br />
+        WHERE THE LANGUAGE LIVES. The generator itself is ortho-kernel, a plain
+        C library containing no Max code at all. This object is only a
+        translation layer: it converts tokens into Max symbols and exposes the
+        dials. That is why a seed produces the same words here, in the
+        JavaScript reference implementation, and in the openFrameworks addon —
+        the language is not reimplemented per host, it is shared.
+        <br />
+        FRESH INSTANCES. Every word drawn advances the generator, so an object
+        that has already produced output is at a different point in the stream.
+        To reproduce a known sequence, use a newly created object and send its
+        generation message first.
     </discussion>
 
 </c74object>
