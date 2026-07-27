@@ -13,7 +13,7 @@
             40,
             60,
             860,
-            1060
+            1210
         ],
         "boxes": [
             {
@@ -652,7 +652,7 @@
             {
                 "box": {
                     "maxclass": "comment",
-                    "text": "The seed is the language. Change it and every word afterwards comes from a different tongue. Saved with the patcher, along with every dial.",
+                    "text": "The seed is the language, and there are more than four billion of them. Every seed names a different tongue. Change it and every word afterwards comes from somewhere else. Saved with the patcher, along with every dial.",
                     "patching_rect": [
                         20,
                         943,
@@ -662,7 +662,7 @@
                     "numinlets": 1,
                     "numoutlets": 0,
                     "id": "obj-38",
-                    "linecount": 2
+                    "linecount": 3
                 }
             },
             {
@@ -735,6 +735,91 @@
                     "numinlets": 2,
                     "numoutlets": 1,
                     "id": "obj-42"
+                }
+            },
+            {
+                "box": {
+                    "maxclass": "comment",
+                    "text": "There is no random message: the object's whole contract is that a seed always names the same language. Bring your own randomness instead. Bang this until something sounds right, then read the seed off the inspector and type it into the object box \u2014 from then on that language is pinned.",
+                    "patching_rect": [
+                        20,
+                        1025,
+                        780,
+                        50
+                    ],
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "id": "obj-43",
+                    "linecount": 4
+                }
+            },
+            {
+                "box": {
+                    "maxclass": "button",
+                    "patching_rect": [
+                        20,
+                        1085,
+                        24,
+                        24
+                    ],
+                    "outlettype": [
+                        "bang"
+                    ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "id": "obj-44"
+                }
+            },
+            {
+                "box": {
+                    "maxclass": "newobj",
+                    "text": "random 1000000",
+                    "patching_rect": [
+                        20,
+                        1117,
+                        100,
+                        22
+                    ],
+                    "outlettype": [
+                        ""
+                    ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "id": "obj-45"
+                }
+            },
+            {
+                "box": {
+                    "maxclass": "newobj",
+                    "text": "prepend seed",
+                    "patching_rect": [
+                        20,
+                        1147,
+                        86,
+                        22
+                    ],
+                    "outlettype": [
+                        ""
+                    ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "id": "obj-46"
+                }
+            },
+            {
+                "box": {
+                    "maxclass": "comment",
+                    "text": "A new seed changes the language. section keeps the language and changes what it is about. While a patch is playing, section is usually the one you want.",
+                    "patching_rect": [
+                        130,
+                        1085,
+                        660,
+                        33
+                    ],
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "id": "obj-47",
+                    "linecount": 2
                 }
             }
         ],
@@ -1019,6 +1104,42 @@
                 "patchline": {
                     "source": [
                         "obj-42",
+                        0
+                    ],
+                    "destination": [
+                        "obj-9",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "obj-44",
+                        0
+                    ],
+                    "destination": [
+                        "obj-45",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "obj-45",
+                        0
+                    ],
+                    "destination": [
+                        "obj-46",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "obj-46",
                         0
                     ],
                     "destination": [
