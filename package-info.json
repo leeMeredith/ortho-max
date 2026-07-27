@@ -1,0 +1,22 @@
+{
+	"name": "ortho",
+	"version": "1.0.0",
+	"author": "JD Clemon Lee Meredith",
+	"description": "Invented-language generator. Mints a language substrate from a seed and emits pseudo-words as a list of symbols.",
+	"tags": [
+		"template",
+		"sdk",
+		"tutorial",
+		"example"
+	],
+	"max_version_min": "8.0",
+	"max_version_max": "none",
+	"os": {
+		"macintosh": {
+			"platform": [
+				"aarch64",
+				"x64"
+			]
+		}
+	}
+}

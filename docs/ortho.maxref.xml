@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml-stylesheet href="./_c74_ref.xsl" type="text/xsl"?>
+
+<!--
+    template.maxref.xml — the reference page for [template]
+
+    WHERE THIS GOES: the package's docs/ folder, named <objectname>.maxref.xml.
+    Max finds it automatically; there is nothing to register. Right-click the
+    object in a patcher and choose "Open <objectname> Reference" to see it.
+
+    THE TWO LINES ABOVE are boilerplate on every refpage. The stylesheet is only
+    used when you open the file directly in a browser — Max renders the page
+    with its own styling, so the exact filename there is cosmetic.
+
+    RENAMING: change the file name and the name="" attribute below. They must
+    match the string in class_new().
+-->
+
+<c74object name="template">
+
+    <digest>
+        Two-number calculator — a documented starting point for Max SDK development
+    </digest>
+
+    <description>
+        <o>template</o> combines two numbers using the operation set by the
+        <m>op</m> attribute. It exists to be taken apart: it is the smallest
+        complete Max external that still demonstrates inlets, outlets, methods,
+        a saved attribute, and a clean split between Max-facing glue code and a
+        portable engine that knows nothing about Max.
+    </description>
+
+    <!--METADATA-->
+    <metadatalist>
+        <metadata name="author">JD Clemon Lee Meredith</metadata>
+        <metadata name="tag">template</metadata>
+        <metadata name="tag">math</metadata>
+        <metadata name="tag">sdk</metadata>
+    </metadatalist>
+
+    <!--INLETS-->
+    <inletlist>
+        <inlet id="0" type="INLET_TYPE">
+            <digest>
+                a (hot) — number, bang, or list "a b"
+            </digest>
+            <description>
+                Sets the first operand and immediately computes and outputs.
+                A <m>bang</m> recomputes with the current values. A two-element
+                list sets both operands at once, then outputs.
+            </description>
+        </inlet>
+        <inlet id="1" type="INLET_TYPE">
+            <digest>
+                b (cold) — second number, stored only
+            </digest>
+            <description>
+                Sets the second operand without producing output. This is the
+                standard Max hot/cold convention: the left inlet triggers, the
+                right inlet only stores.
+            </description>
+        </inlet>
+    </inletlist>
+
+    <!--OUTLETS-->
+    <outletlist>
+        <outlet id="0" type="float">
+            <digest>
+                result
+            </digest>
+            <description>
+                The computed value, as a float.
+            </description>
+        </outlet>
+        <outlet id="1" type="list">
+            <digest>
+                a b result
+            </digest>
+            <description>
+                All three values as a list, for unpacking downstream with
+                <o>unpack</o>. Fired before the left outlet, so anything reacting
+                to the result already has the matching operands available.
+            </description>
+        </outlet>
+    </outletlist>
+
+    <!--ARGUMENTS-->
+    <objarglist>
+    </objarglist>
+
+    <!--MESSAGES-->
+    <methodlist>
+        <method name="int">
+            <arglist>
+                <arg name="value" optional="0" type="int" />
+            </arglist>
+            <digest>
+                Set an operand
+            </digest>
+            <description>
+                In the left inlet, sets a and outputs. In the right inlet, stores
+                b without output.
+            </description>
+        </method>
+        <method name="float">
+            <arglist>
+                <arg name="value" optional="0" type="float" />
+            </arglist>
+            <digest>
+                Set an operand
+            </digest>
+            <description>
+                Same as <m>int</m>, with a decimal value. All arithmetic is done
+                in double precision internally.
+            </description>
+        </method>
+        <method name="bang">
+            <arglist />
+            <digest>
+                Recompute and output
+            </digest>
+            <description>
+                Recomputes using the current operands and operation, and fires
+                both outlets. Useful for re-triggering after changing <m>op</m>.
+            </description>
+        </method>
+        <method name="list">
+            <arglist>
+                <arg name="a" optional="0" type="float" />
+                <arg name="b" optional="1" type="float" />
+            </arglist>
+            <digest>
+                Set both operands at once
+            </digest>
+            <description>
+                Sets a from the first element and b from the second. Sent to the
+                left inlet, it also computes and outputs.
+            </description>
+        </method>
+    </methodlist>
+
+    <!--ATTRIBUTES-->
+    <attributelist>
+        <attribute name="op" get="1" set="1" type="int" size="1">
+            <digest>
+                Operation
+            </digest>
+            <description>
+                Which operation to perform: 0 = Add, 1 = Subtract,
+                2 = Multiply, 3 = Divide. Settable as a typed-in argument
+                (<b>[template @op 2]</b>), from the Inspector, or at
+                runtime with an <b>op $1</b> message.
+                <br />
+                Division by zero is refused rather than producing infinity: the
+                object posts a warning and outputs 0.
+                <br />
+                This attribute is saved with the patcher, so the chosen operation
+                is restored when the patch reopens.
+            </description>
+        </attribute>
+    </attributelist>
+
+    <!--SEEALSO-->
+    <seealsolist>
+        <seealso name="+" />
+        <seealso name="expr" />
+        <seealso name="unpack" />
+    </seealsolist>
+
+    <!--DISCUSSION-->
+    <discussion>
+        The arithmetic lives in <b>simple_math.c</b>, a plain C file containing
+        no Max code at all — no <b>ext.h</b>, no atoms, no outlets. The Max
+        object owns an engine struct and calls into it; the engine never reaches
+        back out. That split is the main thing this object exists to demonstrate,
+        because it lets you test the engine without launching Max and reuse it in
+        another object or another program entirely.
+        <br />
+        When a result is wrong you look in the engine; when an inlet misbehaves
+        you look in the glue. The bug tells you which file it is in.
+    </discussion>
+
+</c74object>
