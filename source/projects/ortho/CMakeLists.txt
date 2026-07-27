@@ -68,3 +68,12 @@ add_library(${PROJECT_NAME} MODULE
 # It expects the target to be named ${PROJECT_NAME}, which is why add_library
 # above uses that variable.
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../../max-sdk-base/script/max-posttarget.cmake)
+
+# --- the vendored language kernel ---
+# ortho-kernel/CMakeLists.txt defines the static library target ortho_kernel and
+# marks its include/ directory PUBLIC, so linking it is all the glue needs for
+# #include "ortho.h" to resolve. Its own project() call is scoped to that
+# subdirectory and leaves PROJECT_NAME alone here; its oracle test binary is
+# guarded off when embedded.
+add_subdirectory(ortho-kernel)
+target_link_libraries(${PROJECT_NAME} PRIVATE ortho_kernel)
