@@ -20,8 +20,8 @@ shared.
 
 `tokens 20` produces:
 
-    ctuseby xkqip hzjry hclakub un fizywaz xylpj'q zmreh cibykaslc wu
-    nupuruhtz qtjryd qxbtgo zyhibug njivytes ex itylahor'a rehalar cawysofwx ox
+    zoym syar reic xeav r vyijkies veovziet vaom tyaj'k ryej
+    riyr ciex royxryij'j reyjvoyv'a zoek'a vyivxiom'i miajroez xaov toyrzayz zoys
 
 ## Install
 
