@@ -9,7 +9,7 @@
 
 set -u
 REF="${1:-../ortho}"
-VEC="$REF/test/vectors/v2"
+VEC="$REF/test/vectors/v3"
 
 if [ ! -d "$VEC" ]; then
   echo "error: vectors not found at $VEC"
@@ -38,7 +38,7 @@ done
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "CONFORMANT — $pass/$pass vectors, spec 1.1, vectors v2"
+  echo "CONFORMANT — $pass/$pass vectors, spec 2.0, vectors v3"
   exit 0
 else
   echo "$fail FAILURE(S) — $pass passed"

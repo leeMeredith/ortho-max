@@ -120,7 +120,7 @@ PASS  seed_4294967295_bare
 PASS  seed_42_preset50
 PASS  seed_12345_preset50
 
-CONFORMANT — 7/7 vectors, spec 1.1, vectors v2
+CONFORMANT — 7/7 vectors, spec 2.0, vectors v3
 ```
 
 The bare vectors prove the all-dials-zero baseline; the preset vectors exercise

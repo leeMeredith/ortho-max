@@ -59,6 +59,25 @@ inspector, separate section in the docs — so the distinction stays legible.
 | `maxWords` (per sentence) | 12 | matches ofxOrtho's declared default |
 | `numSentences` (per paragraph) | 4 | Max's choice; ofxOrtho requires it explicitly |
 
+**These are ceilings on a random draw, not targets.** Word and sentence
+lengths vary below the value rather than sitting at it — deliberate, since
+uniform lengths read as a list rather than as prose.
+
+`ortho_paragraph` draws a per-sentence ceiling below `maxWords`, then passes
+`maxLetters` through unchanged; `ortho_sentence` draws each word's length below
+it. Sentence length varies, word length is reduced once. Paragraph words average
+about 4.8 letters at `maxLetters` 8.
+
+Spec 1.x drew below *both*, which reduced word length twice and put paragraph
+words at two or three letters — below the digraph band, so paragraphs carried
+nothing seed-specific and seeds read alike. Corrected in spec 2.0 (§9).
+
+The readable paths are still not covered by the golden vectors, which exercise
+`ortho_tokens` only. That gap is why the 1.x behaviour survived unnoticed in
+three hosts. Hosts must not compensate for shaping behaviour locally: a host
+that scaled a value on its own would diverge from every other host. Changes here
+are spec changes.
+
 `ofxOrtho` takes these as call arguments and remembers nothing between calls.
 `ortho-max` holds them as saved attributes, because a Max object is
 configured once in the patch rather than at each call site. That difference is
