@@ -126,3 +126,13 @@ KERNEL_VERSION so the README cannot drift. Keep it that way.
 
 The tag alone gives source at that point. The release zip is what users
 without Xcode and CMake can actually run.
+
+## Where the zips live
+
+Built zips are kept in `~/Documents/ortho-release/`, one per release:
+
+    ortho-v3.0.0.zip
+    ortho-v4.0.0.zip
+
+Build in a scratch directory if you like, but copy the finished zip here —
+`/tmp` does not survive a reboot.
