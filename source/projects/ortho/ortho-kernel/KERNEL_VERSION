@@ -1,6 +1,6 @@
 ortho-kernel vendored copy
 upstream: https://github.com/leeMeredith/ortho-kernel
-commit:   98ad7a968dffd6858b37472f04056b532ea0afe1
-spec:     3.0 · vectors v4
+commit:   afe0c0b65de40ae18453eda61a2c552656c35692
+spec:     4.0 · vectors v5
 
 Do not edit these files here. Edit upstream, re-vendor, re-run conformance.
